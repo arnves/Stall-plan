@@ -531,12 +531,12 @@ END:VEVENT
                   <div key={monthName}>
                     <h4 className="font-semibold text-gray-800 mb-2 border-b border-gray-100 pb-1">{monthName}</h4>
                     <div className="grid grid-cols-7 gap-1">
-                      {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+                      {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
                         <div key={i} className="text-center text-xs font-bold text-gray-400 py-1">{d}</div>
                       ))}
 
-                      {/* Empty slots for start of month alignment */}
-                      {Array.from({ length: monthDates[0].getDay() }).map((_, i) => (
+                      {/* Empty slots for start of month alignment (Monday start) */}
+                      {Array.from({ length: (monthDates[0].getDay() + 6) % 7 }).map((_, i) => (
                         <div key={`empty-${i}`} />
                       ))}
 
@@ -645,63 +645,78 @@ END:VEVENT
         {/* The Calendars */}
         <div className="space-y-12 print:space-y-0">
           {Object.entries(months).map(([monthName, monthDates]) => (
-            <div key={monthName} className="break-after-page bg-white p-8 rounded-xl shadow-sm border border-gray-200 print:shadow-none print:border-none print:p-0 print:h-screen">
-              <div className="flex justify-between items-end mb-6 border-b-2 border-emerald-600 pb-2">
-                <h2 className="text-3xl font-bold text-gray-800 uppercase tracking-tight">{monthName}</h2>
+            <div key={monthName} className="break-after-page bg-white p-8 rounded-xl shadow-sm border border-gray-200 print:shadow-none print:border-none print:p-0 print:h-screen print:flex print:flex-col print:overflow-hidden">
+              <div className="flex justify-between items-end mb-6 border-b-2 border-emerald-600 pb-2 print:mb-2">
+                <h2 className="text-3xl font-bold text-gray-800 uppercase tracking-tight print:text-2xl">{monthName}</h2>
                 <span className="text-sm text-gray-500 font-medium no-print">Click any day to swap person</span>
               </div>
 
-              <div className="grid grid-cols-7 gap-px bg-gray-200 border border-gray-200">
-                {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => (
-                  <div key={day} className="bg-gray-50 p-2 text-center text-xs font-bold uppercase text-gray-500 tracking-wider">
-                    {day}
-                  </div>
-                ))}
+              {/* Flex wrapper for the grid to ensure full page height usage in print */}
+              <div className="flex flex-col bg-gray-200 border border-gray-200 print:flex-1 print:border-gray-300">
+                {/* Header Row */}
+                <div className="grid grid-cols-7 gap-px bg-gray-200 border-b border-gray-200 print:border-gray-300">
+                  {['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag', 'Søndag'].map(day => (
+                    <div key={day} className="bg-gray-50 p-2 text-center text-xs font-bold uppercase text-gray-500 tracking-wider print:py-1 print:text-[10px]">
+                      {day}
+                    </div>
+                  ))}
+                </div>
 
-                {/* Empty cells for start of month */}
-                {Array.from({ length: monthDates[0].getDay() }).map((_, i) => (
-                  <div key={`empty-${i}`} className="bg-white min-h-[100px]" />
-                ))}
+                {/* Days Grid - Expands to fill available space */}
+                <div className="grid grid-cols-7 gap-px bg-gray-200 flex-1 auto-rows-fr print:bg-gray-300">
+                  {/* Empty cells for start of month (Monday start) */}
+                  {Array.from({ length: (monthDates[0].getDay() + 6) % 7 }).map((_, i) => (
+                    <div key={`empty-${i}`} className="bg-white min-h-[120px] print:min-h-0" />
+                  ))}
 
-                {/* Days */}
-                {monthDates.map(date => {
-                  const dateStr = formatDate(date);
-                  const riderId = schedule[dateStr];
-                  const rider = getRiderById(riderId);
+                  {/* Days */}
+                  {monthDates.map(date => {
+                    const dateStr = formatDate(date);
+                    const riderId = schedule[dateStr];
+                    const rider = getRiderById(riderId);
 
-                  return (
-                    <div
-                      key={dateStr}
-                      onClick={() => manualAssign(dateStr)}
-                      className={`
+                    return (
+                      <div
+                        key={dateStr}
+                        onClick={() => manualAssign(dateStr)}
+                        className={`
                             bg-white min-h-[120px] p-2 relative group cursor-pointer hover:bg-gray-50 transition-colors
+                            print:min-h-0 print:h-auto print:p-1
                             ${isWeekendDay(date) ? 'bg-gray-50/50' : ''}
                         `}
-                    >
-                      <span className={`
+                      >
+                        <span className={`
                             inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium
                             ${dateStr === formatDate(new Date()) ? 'bg-emerald-600 text-white' : 'text-gray-500'}
+                            print:w-5 print:h-5 print:text-[10px]
                         `}>
-                        {date.getDate()}
-                      </span>
+                          {date.getDate()}
+                        </span>
 
-                      <div className="mt-2 h-full">
-                        {rider ? (
-                          <div className={`
+                        <div className="mt-2 h-full print:mt-1">
+                          {rider ? (
+                            <div className={`
                                     p-2 rounded-md text-sm font-semibold border shadow-sm
                                     ${rider.color}
+                                    print:p-1 print:text-xs print:border-gray-300 print:shadow-none
                                 `}>
-                            {rider.name}
-                          </div>
-                        ) : (
-                          <div className="p-2 rounded-md text-sm font-medium border border-red-200 bg-red-50 text-red-600 flex items-center gap-1">
-                            <AlertCircle size={14} /> Unassigned
-                          </div>
-                        )}
+                              {rider.name}
+                            </div>
+                          ) : (
+                            <div className="p-2 rounded-md text-sm font-medium border border-red-200 bg-red-50 text-red-600 flex items-center gap-1 print:p-1 print:text-xs">
+                              <AlertCircle size={14} className="print:w-3 print:h-3" /> <span className="print:hidden">Unassigned</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+
+                  {/* Fill remaining empty cells for the last row so it renders borders correctly */}
+                  {Array.from({ length: (7 - (monthDates[0].getDay() + 6 + monthDates.length) % 7) % 7 }).map((_, i) => (
+                    <div key={`empty-end-${i}`} className="bg-white min-h-[120px] print:min-h-0" />
+                  ))}
+                </div>
               </div>
 
               <div className="mt-4 text-xs text-gray-400 text-right print:block hidden">
@@ -723,11 +738,45 @@ END:VEVENT
       {/* Print Styles Injection */}
       <style>{`
         @media print {
+          @page { 
+            size: A4 landscape;
+            margin: 0;
+          }
+          body { 
+            background: white; 
+            margin: 0;
+            padding: 0;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          
+          /* Reset app shell spacing */
+          .min-h-screen, .p-4, .md\\:p-8, .pb-20, .max-w-6xl {
+            min-height: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: none !important;
+            width: 100% !important;
+            overflow: visible !important;
+          }
+
           .no-print { display: none !important; }
-          .break-after-page { page-break-after: always; break-after: page; margin-bottom: 0 !important; height: 100vh; }
-          body { background: white; }
-          .shadow-sm, .shadow-2xl { box-shadow: none !important; }
-          .rounded-xl { border-radius: 0 !important; }
+          
+          .break-after-page { 
+            height: 100vh;
+            width: 100vw;
+            page-break-after: always; 
+            break-after: page; 
+            margin: 0 !important;
+            padding: 10mm !important; /* Controlled padding acts as margin */
+            box-sizing: border-box;
+            display: flex !important;
+            flex-direction: column;
+            overflow: hidden; /* Clip spills */
+          }
+
+          /* Force background colors */
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
       `}</style>
     </div>
