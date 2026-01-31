@@ -60,7 +60,7 @@ const formatICalDate = (dateStr) => {
 };
 
 const getMonthName = (date) => {
-  return date.toLocaleString('default', { month: 'long', year: 'numeric' });
+  return date.toLocaleString('nb-NO', { month: 'long', year: 'numeric' });
 };
 
 // --- Components ---
@@ -116,8 +116,8 @@ export default function App() {
     months: 1
   });
 
-  const [eventName, setEventName] = useState('Stable Duty');
-  const [eventDescription, setEventDescription] = useState('You are scheduled for stable duty today.');
+  const [eventName, setEventName] = useState('Stallvakt');
+  const [eventDescription, setEventDescription] = useState('Du er satt opp på stallvakt i dag.');
   const [schedule, setSchedule] = useState({}); // { "2023-10-01": riderId }
   const [view, setView] = useState('setup'); // 'setup' | 'calendar'
   const [activeRiderId, setActiveRiderId] = useState(null); // For configuration modal
@@ -309,7 +309,7 @@ END:VEVENT
     ];
     setRiders([...riders, {
       id,
-      name: `Rider ${riders.length + 1}`,
+      name: `Rytter ${riders.length + 1}`,
       color: colors[riders.length % colors.length],
       blockedDates: []
     }]);
@@ -366,18 +366,18 @@ END:VEVENT
 
       {/* Header */}
       <div className="text-center py-8">
-        <h1 className="text-4xl font-bold text-gray-800 mb-2">Stable Scheduler</h1>
-        <p className="text-gray-600">Plan fair schedules for your horse team.</p>
+        <h1 className="text-4xl font-bold text-gray-800 mb-2">Stallvaktplan</h1>
+        <p className="text-gray-600">Planlegg rettferdige vaktlister for stallen.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
         {/* Configuration Panel */}
         <div className="md:col-span-1 space-y-6">
-          <Card title="Settings">
+          <Card title="Innstillinger">
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Startdato</label>
                 <input
                   type="date"
                   value={config.startDate}
@@ -386,56 +386,56 @@ END:VEVENT
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Varighet</label>
                 <select
                   value={config.months}
                   onChange={(e) => setConfig({ ...config, months: parseInt(e.target.value) })}
                   className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-emerald-500 outline-none"
                 >
-                  <option value={1}>1 Month</option>
-                  <option value={2}>2 Months</option>
-                  <option value={3}>3 Months</option>
-                  <option value={6}>6 Months</option>
+                  <option value={1}>1 Måned</option>
+                  <option value={2}>2 Måneder</option>
+                  <option value={3}>3 Måneder</option>
+                  <option value={6}>6 Måneder</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Event Name (for Calendar)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Hendelsesnavn (for kalender)</label>
                 <input
                   type="text"
                   value={eventName}
                   onChange={(e) => setEventName(e.target.value)}
                   className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-emerald-500 outline-none"
-                  placeholder="Stable Duty"
+                  placeholder="Stallvakt"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Event Description</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Beskrivelse</label>
                 <textarea
                   value={eventDescription}
                   onChange={(e) => setEventDescription(e.target.value)}
                   className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
                   rows={2}
-                  placeholder="Details about the shift..."
+                  placeholder="Detaljer om vakten..."
                 />
               </div>
               <Button onClick={generateSchedule} className="w-full justify-center mt-4">
-                <CalendarIcon size={18} /> Generate Schedule
+                <CalendarIcon size={18} /> Generer Vaktliste
               </Button>
             </div>
           </Card>
 
-          <Card title="Quick Stats">
+          <Card title="Statistikk">
             <div className="text-sm text-gray-600 space-y-2">
               <div className="flex justify-between">
-                <span>Riders:</span>
+                <span>Ryttere:</span>
                 <span className="font-medium">{riders.length}</span>
               </div>
               <div className="flex justify-between">
-                <span>Total Days:</span>
+                <span>Totale dager:</span>
                 <span className="font-medium">{generateDates(config.startDate, config.months).length}</span>
               </div>
               <div className="p-3 bg-blue-50 text-blue-800 rounded-md text-xs mt-4">
-                Tip: Click the gear icon on a rider to set "Avoid Dates" or black out specific days like vacations.
+                Tips: Klikk på tannhjulet på en rytter for å sette "Unngå datoer" eller blokkere spesifikke dager som ferier.
               </div>
             </div>
           </Card>
@@ -443,7 +443,7 @@ END:VEVENT
 
         {/* Riders List */}
         <div className="md:col-span-2">
-          <Card title="Rider Management" className="h-full">
+          <Card title="Administrer Ryttere" className="h-full">
             <div className="space-y-3">
               {riders.map((rider) => (
                 <div key={rider.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 group">
@@ -465,7 +465,7 @@ END:VEVENT
                         className="flex items-center gap-1 hover:text-blue-600"
                       >
                         <CalendarIcon size={12} />
-                        {rider.blockedDates.length} blocked dates
+                        {rider.blockedDates.length} blokkerte datoer
                       </button>
                     </div>
                   </div>
@@ -474,7 +474,7 @@ END:VEVENT
                     type="button"
                     onClick={() => setActiveRiderId(rider.id)}
                     className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
-                    title="Configure Availability"
+                    title="Konfigurer Tilgjengelighet"
                   >
                     <Settings size={18} />
                   </button>
@@ -483,7 +483,7 @@ END:VEVENT
                     type="button"
                     onClick={() => removeRider(rider.id)}
                     className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                    title="Remove Rider"
+                    title="Fjern Rytter"
                   >
                     <Trash2 size={18} />
                   </button>
@@ -491,7 +491,7 @@ END:VEVENT
               ))}
 
               <Button variant="secondary" onClick={addRider} className="w-full justify-center border-dashed border-2">
-                <Plus size={18} /> Add New Rider
+                <Plus size={18} /> Legg til Ny Rytter
               </Button>
             </div>
           </Card>
@@ -504,17 +504,17 @@ END:VEVENT
           <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
               <h3 className="text-xl font-bold">
-                Availability: {getRiderById(activeRiderId)?.name}
+                Tilgjengelighet: {getRiderById(activeRiderId)?.name}
               </h3>
               <button type="button" onClick={() => setActiveRiderId(null)}><X size={24} className="text-gray-400 hover:text-gray-600" /></button>
             </div>
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
                 <p className="text-sm text-gray-500">
-                  Select dates to block (vacations, etc).
+                  Velg datoer som skal blokkeres (ferier, osv).
                 </p>
                 <span className="text-sm font-medium px-2 py-1 rounded bg-blue-100 text-blue-700">
-                  {getRiderById(activeRiderId)?.blockedDates.length} days blocked
+                  {getRiderById(activeRiderId)?.blockedDates.length} dager blokkert
                 </span>
               </div>
 
@@ -531,7 +531,7 @@ END:VEVENT
                   <div key={monthName}>
                     <h4 className="font-semibold text-gray-800 mb-2 border-b border-gray-100 pb-1">{monthName}</h4>
                     <div className="grid grid-cols-7 gap-1">
-                      {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+                      {['M', 'T', 'O', 'T', 'F', 'L', 'S'].map((d, i) => (
                         <div key={i} className="text-center text-xs font-bold text-gray-400 py-1">{d}</div>
                       ))}
 
@@ -568,7 +568,7 @@ END:VEVENT
               </div>
             </div>
             <div className="p-6 bg-gray-50 text-right sticky bottom-0 border-t border-gray-100">
-              <Button onClick={() => setActiveRiderId(null)}>Done</Button>
+              <Button onClick={() => setActiveRiderId(null)}>Ferdig</Button>
             </div>
           </div>
         </div>
@@ -603,39 +603,39 @@ END:VEVENT
         {/* Toolbar - Hidden when printing */}
         <div className="mb-8 flex flex-wrap gap-4 items-center justify-between no-print bg-white p-4 rounded-xl shadow-sm border border-gray-200">
           <Button variant="secondary" onClick={() => setView('setup')}>
-            <User size={18} /> Edit Riders
+            <User size={18} /> Rediger Ryttere
           </Button>
 
           <div className="flex gap-2">
             <Button variant="secondary" onClick={generateSchedule} title="Re-roll logic">
-              <RefreshCw size={18} /> Re-Draw
+              <RefreshCw size={18} /> Generer på nytt
             </Button>
             <Button onClick={handlePrint}>
-              <Printer size={18} /> Print Plan
+              <Printer size={18} /> Skriv ut Plan
             </Button>
           </div>
         </div>
 
         {/* Stats Summary - Hidden when printing */}
         <div className="mb-8 no-print">
-          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Fairness Check (Saturdays Priority)</h3>
+          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Rettferdighetssjekk (Lørdager prioritert)</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {riders.map(r => (
               <div key={r.id} className="bg-white p-3 rounded-lg border border-gray-200 text-sm flex flex-col justify-between">
                 <div>
                   <div className="font-bold text-gray-800">{r.name}</div>
                   <div className="flex justify-between text-gray-500 mt-1">
-                    <span>Total: {stats[r.id].total}</span>
-                    <span className="font-bold text-emerald-700">Sat: {stats[r.id].saturdays}</span>
+                    <span>Totalt: {stats[r.id].total}</span>
+                    <span className="font-bold text-emerald-700">Lør: {stats[r.id].saturdays}</span>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => downloadICal(r.id)}
                   className="mt-3 w-full py-1.5 bg-gray-50 hover:bg-emerald-50 text-gray-600 hover:text-emerald-700 rounded border border-gray-200 hover:border-emerald-200 flex items-center justify-center gap-1.5 transition-colors text-xs font-medium"
-                  title={`Download .ics calendar for ${r.name}`}
+                  title={`Last ned .ics kalender for ${r.name}`}
                 >
-                  <Download size={14} /> Download iCal
+                  <Download size={14} /> Last ned iCal
                 </button>
               </div>
             ))}
@@ -648,7 +648,7 @@ END:VEVENT
             <div key={monthName} className="break-after-page bg-white p-8 rounded-xl shadow-sm border border-gray-200 print:shadow-none print:border-none print:p-0 print:h-screen print:flex print:flex-col print:overflow-hidden">
               <div className="flex justify-between items-end mb-6 border-b-2 border-emerald-600 pb-2 print:mb-2">
                 <h2 className="text-3xl font-bold text-gray-800 uppercase tracking-tight print:text-2xl">{monthName}</h2>
-                <span className="text-sm text-gray-500 font-medium no-print">Click any day to swap person</span>
+                <span className="text-sm text-gray-500 font-medium no-print">Klikk på en dag for å bytte person</span>
               </div>
 
               {/* Flex wrapper for the grid to ensure full page height usage in print */}
@@ -704,7 +704,7 @@ END:VEVENT
                             </div>
                           ) : (
                             <div className="p-2 rounded-md text-sm font-medium border border-red-200 bg-red-50 text-red-600 flex items-center gap-1 print:p-1 print:text-xs">
-                              <AlertCircle size={14} className="print:w-3 print:h-3" /> <span className="print:hidden">Unassigned</span>
+                              <AlertCircle size={14} className="print:w-3 print:h-3" /> <span className="print:hidden">Ikke tildelt</span>
                             </div>
                           )}
                         </div>
@@ -720,7 +720,7 @@ END:VEVENT
               </div>
 
               <div className="mt-4 text-xs text-gray-400 text-right print:block hidden">
-                Generated by Stable Scheduler
+                Generert av Stallvaktplan
               </div>
             </div>
           ))}
