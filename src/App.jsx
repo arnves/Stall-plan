@@ -147,20 +147,26 @@ export default function App() {
 
     // --- Helpers ---
 
-    const workedLastWeekend = (currentDate, candidateId) => {
-      const checkDates = [];
-      const d = new Date(currentDate);
-      // Find the most recent COMPLETED weekend.
-      const check = new Date(currentDate);
-      // Go back to last Sunday
-      while (check.getDay() !== 0) { check.setDate(check.getDate() - 1); }
-      // Now check is last Sunday.
-      const lastSun = new Date(check);
-      const lastSat = new Date(check); lastSat.setDate(check.getDate() - 1);
-      const lastFri = new Date(check); lastFri.setDate(check.getDate() - 2);
+    const checkWeekend = (referenceDate, offsetWeeks, candidateId) => {
+      // 1. Find the Friday of the *reference* date's weekend
+      const day = referenceDate.getDay(); // 0=Sun, 5=Fri, 6=Sat
+      const diffToFriday = day === 0 ? -2 : (day === 6 ? -1 : 0); // If Sun(-2), If Sat(-1), If Fri(0)
 
-      return [lastFri, lastSat, lastSun].some(d => {
-        if (d >= currentDate) return false;
+      const referenceFriday = new Date(referenceDate);
+      referenceFriday.setDate(referenceDate.getDate() + diffToFriday);
+
+      // 2. Shift to the target weekend (Prev = -1, Next = 1)
+      const targetFriday = new Date(referenceFriday);
+      targetFriday.setDate(referenceFriday.getDate() + (offsetWeeks * 7));
+
+      // 3. Check Fri/Sat/Sun of that target weekend
+      const targetSat = new Date(targetFriday); targetSat.setDate(targetFriday.getDate() + 1);
+      const targetSun = new Date(targetFriday); targetSun.setDate(targetFriday.getDate() + 2);
+
+      const datesToCheck = [targetFriday, targetSat, targetSun];
+
+      return datesToCheck.some(d => {
+        // Don't check future beyond schedule scope if not generating it yet (though sat next week IS generated)
         return newSchedule[formatDate(d)] === candidateId;
       });
     };
@@ -229,9 +235,11 @@ export default function App() {
         candidates = candidates.filter(r => r.id !== tomorrowWorker);
       }
 
-      // 3. Soft Constraint: Consecutive Weekends
+      // 3. Soft Constraint: Consecutive Weekends (Lookbehind AND Lookahead)
       if (isFriSatSun(date)) {
-        let freshWeekendCandidates = candidates.filter(r => !workedLastWeekend(date, r.id));
+        let freshWeekendCandidates = candidates.filter(r =>
+          !checkWeekend(date, -1, r.id) && !checkWeekend(date, 1, r.id)
+        );
         if (freshWeekendCandidates.length > 0) {
           candidates = freshWeekendCandidates;
         }
@@ -279,7 +287,7 @@ METHOD:PUBLISH
       if (scheduledRiderId === riderId) {
         const dateFormatted = formatICalDate(dateStr);
         // Ensure newlines are properly escaped for iCal format
-        const safeDescription = eventDescription.replace(/\n/g, '\\n');
+        const safeDescription = eventDescription.replace(/\\n/g, '\\\\n');
         icalContent +=
           `BEGIN:VEVENT
 DTSTART;VALUE=DATE:${dateFormatted}
@@ -298,7 +306,7 @@ END:VEVENT
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `${rider.name.replace(/\s+/g, '_')}_schedule.ics`);
+    link.setAttribute('download', `${rider.name.replace(/\\s+/g, '_')}_schedule.ics`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -388,7 +396,7 @@ METHOD:PUBLISH
     Object.entries(schedule).forEach(([dateStr, scheduledRiderId]) => {
       if (scheduledRiderId === riderId) {
         const dateFormatted = formatICalDate(dateStr);
-        const safeDescription = eventDescription.replace(/\n/g, '\\n');
+        const safeDescription = eventDescription.replace(/\\n/g, '\\\\n');
         icalContent +=
           `BEGIN:VEVENT
 DTSTART;VALUE=DATE:${dateFormatted}
@@ -409,7 +417,7 @@ END:VEVENT
     const boundary = "boundary_stallvakt_plan_12345";
     const toEmail = ""; // We don't have email stored, user can fill in
     const subject = `Stallvaktplan - ${rider.name}`;
-    const bodyText = `Hei ${rider.name},\n\nHer er din oversikt for stallvakt. Se vedlagt kalenderfil (.ics) og full oversikt (.html).`;
+    const bodyText = `Hei ${rider.name},\\n\\nHer er din oversikt for stallvakt. Se vedlagt kalenderfil (.ics) og full oversikt (.html).`;
 
     const emlContent = `MIME-Version: 1.0
 To: ${toEmail}
@@ -834,7 +842,6 @@ ${btoa(unescape(encodeURIComponent(htmlContent)))}
                     <div key={`empty-${i}`} className="bg-white min-h-[120px] print:min-h-0" />
                   ))}
 
-                  {/* Days */}
                   {monthDates.map(date => {
                     const dateStr = formatDate(date);
                     const riderId = schedule[dateStr];
@@ -851,41 +858,32 @@ ${btoa(unescape(encodeURIComponent(htmlContent)))}
                         `}
                       >
                         <span className={`
-                            inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium
-                            ${dateStr === formatDate(new Date()) ? 'bg-emerald-600 text-white' : 'text-gray-500'}
-                            print:w-5 print:h-5 print:text-[10px]
-                        `}>
+                            text-sm font-semibold inline-block w-8 h-8 rounded-full flex items-center justify-center mb-1
+                            print:w-5 print:h-5 print:text-[10px] print:mb-0
+                            ${formatDate(new Date()) === dateStr ? 'bg-emerald-600 text-white' : 'text-gray-500'}
+                          `}>
                           {date.getDate()}
                         </span>
 
-                        <div className="mt-2 h-full print:mt-1">
-                          {rider ? (
-                            <div className={`
-                                    p-2 rounded-md text-sm font-semibold border shadow-sm
-                                    ${rider.color}
-                                    print:p-1 print:text-xs print:border-gray-300 print:shadow-none
-                                `}>
-                              {rider.name}
-                            </div>
-                          ) : (
-                            <div className="p-2 rounded-md text-sm font-medium border border-red-200 bg-red-50 text-red-600 flex items-center gap-1 print:p-1 print:text-xs">
-                              <AlertCircle size={14} className="print:w-3 print:h-3" /> <span className="print:hidden">Ikke tildelt</span>
-                            </div>
-                          )}
-                        </div>
+                        {rider && (
+                          <div className={`
+                              p-2 rounded-lg border text-sm font-medium animate-in zoom-in-95 duration-200
+                              print:p-0 print:border-0 print:text-[11px] print:font-bold print:leading-tight
+                              ${rider.color}
+                            `}>
+                            {rider.name}
+                          </div>
+                        )}
+
+                        {!rider && (
+                          <div className="flex h-full items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity print:hidden">
+                            <Plus size={20} className="text-gray-300" />
+                          </div>
+                        )}
                       </div>
                     );
                   })}
-
-                  {/* Fill remaining empty cells for the last row so it renders borders correctly */}
-                  {Array.from({ length: (7 - (monthDates[0].getDay() + 6 + monthDates.length) % 7) % 7 }).map((_, i) => (
-                    <div key={`empty-end-${i}`} className="bg-white min-h-[120px] print:min-h-0" />
-                  ))}
                 </div>
-              </div>
-
-              <div className="mt-4 text-xs text-gray-400 text-right print:block hidden">
-                Generert av Stallvaktplan
               </div>
             </div>
           ))}
@@ -895,55 +893,8 @@ ${btoa(unescape(encodeURIComponent(htmlContent)))}
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans text-gray-900 pb-20">
-      <div className="p-4 md:p-8">
-        {view === 'setup' ? renderSetupView() : renderCalendarView()}
-      </div>
-
-      {/* Print Styles Injection */}
-      <style>{`
-        @media print {
-          @page { 
-            size: A4 landscape;
-            margin: 0;
-          }
-          body { 
-            background: white; 
-            margin: 0;
-            padding: 0;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          
-          /* Reset app shell spacing */
-          .min-h-screen, .p-4, .md\\:p-8, .pb-20, .max-w-6xl {
-            min-height: 0 !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            max-width: none !important;
-            width: 100% !important;
-            overflow: visible !important;
-          }
-
-          .no-print { display: none !important; }
-          
-          .break-after-page { 
-            height: 100vh;
-            width: 100vw;
-            page-break-after: always; 
-            break-after: page; 
-            margin: 0 !important;
-            padding: 10mm !important; /* Controlled padding acts as margin */
-            box-sizing: border-box;
-            display: flex !important;
-            flex-direction: column;
-            overflow: hidden; /* Clip spills */
-          }
-
-          /* Force background colors */
-          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-        }
-      `}</style>
+    <div className="min-h-screen bg-gray-100 py-8 px-4 font-sans text-gray-900 print:bg-white print:p-0">
+      {view === 'setup' ? renderSetupView() : renderCalendarView()}
     </div>
   );
 }
