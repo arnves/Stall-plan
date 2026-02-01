@@ -171,6 +171,28 @@ export default function App() {
       });
     };
 
+    const countShiftsInWeek = (currentDate, candidateId) => {
+      // Find Monday of the current week
+      const d = new Date(currentDate);
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+
+      const monday = new Date(d.setDate(diff));
+      const weekDates = [];
+      for (let i = 0; i < 7; i++) {
+        const next = new Date(monday);
+        next.setDate(monday.getDate() + i);
+        weekDates.push(next);
+      }
+
+      return weekDates.reduce((count, date) => {
+        if (newSchedule[formatDate(date)] === candidateId) {
+          return count + 1;
+        }
+        return count;
+      }, 0);
+    };
+
     // --- PASS 1: SATURDAYS (The "Anchor" Days) ---
 
     dates.filter(d => isSaturday(d)).forEach(date => {
@@ -234,6 +256,15 @@ export default function App() {
       } else {
         candidates = candidates.filter(r => r.id !== tomorrowWorker);
       }
+
+      // 2b. Soft Constraint: Max 3 Shifts Per Week
+      // Priority: Try to find someone with < 3 shifts this week.
+      const underLimitCandidates = candidates.filter(r => countShiftsInWeek(date, r.id) < 3);
+      if (underLimitCandidates.length > 0) {
+        candidates = underLimitCandidates;
+      }
+
+
 
       // 3. Soft Constraint: Consecutive Weekends (Lookbehind AND Lookahead)
       if (isFriSatSun(date)) {
@@ -860,7 +891,7 @@ ${btoa(unescape(encodeURIComponent(htmlContent)))}
                         <span className={`
                             text-sm font-semibold inline-block w-8 h-8 rounded-full flex items-center justify-center mb-1
                             print:w-5 print:h-5 print:text-[10px] print:mb-0
-                            ${formatDate(new Date()) === dateStr ? 'bg-emerald-600 text-white' : 'text-gray-500'}
+                            text-gray-500
                           `}>
                           {date.getDate()}
                         </span>
