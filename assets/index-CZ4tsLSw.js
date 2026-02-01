@@ -73,6 +73,7 @@ END:VEVENT
 Her er din oversikt for stallvakt. Se vedlagt kalenderfil (.ics) og full oversikt (.html).`,L=`MIME-Version: 1.0
 To: ${r}
 Subject: ${A}
+X-Unsent: 1
 Content-Type: multipart/mixed; boundary="${J}"
 
 --${J}
