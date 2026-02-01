@@ -414,6 +414,7 @@ END:VEVENT
     const emlContent = `MIME-Version: 1.0
 To: ${toEmail}
 Subject: ${subject}
+X-Unsent: 1
 Content-Type: multipart/mixed; boundary="${boundary}"
 
 --${boundary}
