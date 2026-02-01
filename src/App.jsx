@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Trash2, Plus, Calendar as CalendarIcon, Printer, RefreshCw, User, AlertCircle, Check, X, Download, Settings } from 'lucide-react';
+import { Trash2, Plus, Calendar as CalendarIcon, Printer, RefreshCw, User, AlertCircle, Check, X, Download, Settings, Mail } from 'lucide-react';
 
 /* STABLE SCHEDULER
   A self-contained React application for managing stable duty rosters.
@@ -299,6 +299,150 @@ END:VEVENT
     const link = document.createElement('a');
     link.href = url;
     link.setAttribute('download', `${rider.name.replace(/\s+/g, '_')}_schedule.ics`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const generateScheduleHTML = () => {
+    const dates = generateDates(config.startDate, config.endDate);
+
+    // Group by month for display
+    const months = {};
+    dates.forEach(date => {
+      const key = getMonthName(date);
+      if (!months[key]) months[key] = [];
+      months[key].push(date);
+    });
+
+    let htmlRows = '';
+
+    Object.entries(months).forEach(([monthName, monthDates]) => {
+      htmlRows += `<tr style="background-color: #f3f4f6;"><td colspan="3" style="font-weight: bold; padding: 10px; font-size: 1.1em;">${monthName}</td></tr>`;
+      monthDates.forEach(date => {
+        const dateStr = formatDate(date);
+        const riderId = schedule[dateStr];
+        const rider = getRiderById(riderId);
+        const isWknd = isWeekendDay(date);
+
+        const rowBg = isWknd ? '#fafafa' : '#ffffff';
+        const dateColor = isWknd ? '#dc2626' : '#374151'; // red for weekend dates text
+
+        htmlRows += `
+          <tr style="background-color: ${rowBg}; border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 8px; color: ${dateColor};">${dateStr}</td>
+            <td style="padding: 8px; color: #6b7280;">${date.toLocaleDateString('nb-NO', { weekday: 'long' })}</td>
+            <td style="padding: 8px; font-weight: ${rider ? 'bold' : 'normal'};">
+              ${rider ? `<span style="color: #059669;">${rider.name}</span>` : '<span style="color: #dc2626;">Ikke tildelt</span>'}
+            </td>
+          </tr>
+        `;
+      });
+    });
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+          h1 { color: #111827; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th { text-align: left; background: #059669; color: white; padding: 10px; }
+          td { padding: 8px; }
+        </style>
+      </head>
+      <body>
+        <h1>Stallvaktplan</h1>
+        <p>Her er den oppdaterte oversikten.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Dato</th>
+              <th>Dag</th>
+              <th>Ansvarlig</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${htmlRows}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+  };
+
+  const downloadEML = (riderId) => {
+    const rider = getRiderById(riderId);
+    if (!rider) return;
+
+    // 1. Generate iCal Content
+    let icalContent =
+      `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Stable Scheduler//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+`;
+    Object.entries(schedule).forEach(([dateStr, scheduledRiderId]) => {
+      if (scheduledRiderId === riderId) {
+        const dateFormatted = formatICalDate(dateStr);
+        const safeDescription = eventDescription.replace(/\n/g, '\\n');
+        icalContent +=
+          `BEGIN:VEVENT
+DTSTART;VALUE=DATE:${dateFormatted}
+DTEND;VALUE=DATE:${dateFormatted}
+SUMMARY:${eventName}
+DESCRIPTION:${safeDescription}
+STATUS:CONFIRMED
+END:VEVENT
+`;
+      }
+    });
+    icalContent += `END:VCALENDAR`;
+
+    // 2. Generate HTML Content
+    const htmlContent = generateScheduleHTML();
+
+    // 3. Construct EML
+    const boundary = "boundary_stallvakt_plan_12345";
+    const toEmail = ""; // We don't have email stored, user can fill in
+    const subject = `Stallvaktplan - ${rider.name}`;
+    const bodyText = `Hei ${rider.name},\n\nHer er din oversikt for stallvakt. Se vedlagt kalenderfil (.ics) og full oversikt (.html).`;
+
+    const emlContent = `MIME-Version: 1.0
+To: ${toEmail}
+Subject: ${subject}
+Content-Type: multipart/mixed; boundary="${boundary}"
+
+--${boundary}
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+${bodyText}
+
+--${boundary}
+Content-Type: text/calendar; charset="utf-8"; method=REQUEST; name="stallvakt.ics"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="stallvakt.ics"
+
+${btoa(unescape(encodeURIComponent(icalContent)))}
+
+--${boundary}
+Content-Type: text/html; charset="utf-8"; name="stallvaktplan.html"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="stallvaktplan.html"
+
+${btoa(unescape(encodeURIComponent(htmlContent)))}
+
+--${boundary}--`;
+
+    const blob = new Blob([emlContent], { type: 'message/rfc822;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Stallvakt_${rider.name}.eml`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -639,14 +783,24 @@ END:VEVENT
                     <span className="font-bold text-emerald-700">Lør: {stats[r.id].saturdays}</span>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => downloadICal(r.id)}
-                  className="mt-3 w-full py-1.5 bg-gray-50 hover:bg-emerald-50 text-gray-600 hover:text-emerald-700 rounded border border-gray-200 hover:border-emerald-200 flex items-center justify-center gap-1.5 transition-colors text-xs font-medium"
-                  title={`Last ned .ics kalender for ${r.name}`}
-                >
-                  <Download size={14} /> Last ned iCal
-                </button>
+                <div className="mt-3 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => downloadICal(r.id)}
+                    className="w-full py-1.5 bg-gray-50 hover:bg-emerald-50 text-gray-600 hover:text-emerald-700 rounded border border-gray-200 hover:border-emerald-200 flex items-center justify-center gap-1.5 transition-colors text-xs font-medium"
+                    title={`Last ned .ics kalender for ${r.name}`}
+                  >
+                    <Download size={14} /> Last ned iCal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => downloadEML(r.id)}
+                    className="w-full py-1.5 bg-white hover:bg-gray-50 text-gray-600 hover:text-blue-700 rounded border border-gray-200 hover:border-blue-200 flex items-center justify-center gap-1.5 transition-colors text-xs font-medium"
+                    title={`Last ned e-post kladd for ${r.name}`}
+                  >
+                    <Mail size={14} /> Last ned E-post
+                  </button>
+                </div>
               </div>
             ))}
           </div>
