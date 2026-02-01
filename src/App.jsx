@@ -14,19 +14,15 @@ import { Trash2, Plus, Calendar as CalendarIcon, Printer, RefreshCw, User, Alert
 
 // --- Utility Functions ---
 
-const generateDates = (startDate, numMonths) => {
+const generateDates = (startDate, endDate) => {
   const start = new Date(startDate);
-  // Ensure we are working with midnight local time to avoid timezone shifts
   start.setHours(0, 0, 0, 0);
 
-  const end = new Date(start);
-  end.setMonth(end.getMonth() + numMonths);
-  end.setDate(0); // Last day of previous month
+  const end = new Date(endDate);
+  end.setHours(0, 0, 0, 0);
 
   const dates = [];
   const current = new Date(start);
-  // Align to 1st of month
-  current.setDate(1);
 
   while (current <= end) {
     dates.push(new Date(current));
@@ -105,15 +101,28 @@ const Card = ({ children, title, className = '' }) => (
 export default function App() {
   // --- State ---
   const [riders, setRiders] = useState([
-    { id: 1, name: 'Alice', color: 'bg-blue-100 text-blue-800 border-blue-200', blockedDates: [] },
-    { id: 2, name: 'Bob', color: 'bg-green-100 text-green-800 border-green-200', blockedDates: [] },
-    { id: 3, name: 'Charlie', color: 'bg-purple-100 text-purple-800 border-purple-200', blockedDates: [] },
-    { id: 4, name: 'Diana', color: 'bg-orange-100 text-orange-800 border-orange-200', blockedDates: [] },
+    { id: 1, name: 'Elin', color: 'bg-blue-100 text-blue-800 border-blue-200', blockedDates: [] },
+    { id: 2, name: 'Anne', color: 'bg-green-100 text-green-800 border-green-200', blockedDates: [] },
+    { id: 3, name: 'Silvia', color: 'bg-purple-100 text-purple-800 border-purple-200', blockedDates: [] },
+    { id: 4, name: 'Hedda', color: 'bg-orange-100 text-orange-800 border-orange-200', blockedDates: [] },
+    { id: 5, name: 'Kristel', color: 'bg-yellow-100 text-yellow-800 border-yellow-200', blockedDates: [] },
+    { id: 6, name: 'Marion', color: 'bg-red-100 text-red-800 border-red-200', blockedDates: [] },
   ]);
 
-  const [config, setConfig] = useState({
-    startDate: new Date().toISOString().split('T')[0].substring(0, 7) + '-01', // YYYY-MM-01
-    months: 1
+  const [config, setConfig] = useState(() => {
+    const start = new Date();
+    const startStr = start.toISOString().split('T')[0].substring(0, 7) + '-01'; // YYYY-MM-01
+
+    // Default end date: Last day of the start month
+    const end = new Date(startStr);
+    end.setMonth(end.getMonth() + 1);
+    end.setDate(0);
+    const endStr = end.toISOString().split('T')[0];
+
+    return {
+      startDate: startStr,
+      endDate: endStr
+    };
   });
 
   const [eventName, setEventName] = useState('Stallvakt');
@@ -125,7 +134,7 @@ export default function App() {
   // --- Logic: The Scheduler ---
 
   const generateSchedule = () => {
-    const dates = generateDates(config.startDate, config.months);
+    const dates = generateDates(config.startDate, config.endDate);
     const newSchedule = {};
 
     // Stats tracking
@@ -341,17 +350,19 @@ END:VEVENT
 
   const manualAssign = (dateStr) => {
     const currentId = schedule[dateStr];
-    const currentIndex = riders.findIndex(r => r.id === currentId);
-    let nextIndex = currentIndex + 1;
-    let nextId = null;
 
-    if (nextIndex < riders.length) {
-      nextId = riders[nextIndex].id;
-    } else if (nextIndex === riders.length) {
-      nextId = null;
-    } else {
-      nextId = riders[0].id;
-    }
+    // Filter riders who have NOT blocked this date
+    const availableRiders = riders.filter(r => !r.blockedDates.includes(dateStr));
+
+    // Create a cycle list: [Rider1, Rider2, ..., null]
+    // We include null to allow unassigning
+    const cycleList = [...availableRiders.map(r => r.id), null];
+
+    const currentIndex = cycleList.indexOf(currentId);
+
+    // Calculate next index, wrapping around if necessary
+    const nextIndex = (currentIndex + 1) % cycleList.length;
+    const nextId = cycleList[nextIndex];
 
     setSchedule({ ...schedule, [dateStr]: nextId });
   };
@@ -386,17 +397,16 @@ END:VEVENT
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Varighet</label>
-                <select
-                  value={config.months}
-                  onChange={(e) => setConfig({ ...config, months: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-emerald-500 outline-none"
-                >
-                  <option value={1}>1 Måned</option>
-                  <option value={2}>2 Måneder</option>
-                  <option value={3}>3 Måneder</option>
-                  <option value={6}>6 Måneder</option>
-                </select>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sluttdato</label>
+                  <input
+                    type="date"
+                    value={config.endDate}
+                    min={config.startDate}
+                    onChange={(e) => setConfig({ ...config, endDate: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Hendelsesnavn (for kalender)</label>
@@ -432,7 +442,7 @@ END:VEVENT
               </div>
               <div className="flex justify-between">
                 <span>Totale dager:</span>
-                <span className="font-medium">{generateDates(config.startDate, config.months).length}</span>
+                <span className="font-medium">{generateDates(config.startDate, config.endDate).length}</span>
               </div>
               <div className="p-3 bg-blue-50 text-blue-800 rounded-md text-xs mt-4">
                 Tips: Klikk på tannhjulet på en rytter for å sette "Unngå datoer" eller blokkere spesifikke dager som ferier.
@@ -521,7 +531,7 @@ END:VEVENT
               {/* Grouped Month View for Selection */}
               <div className="space-y-6">
                 {Object.entries(
-                  generateDates(config.startDate, config.months).reduce((acc, date) => {
+                  generateDates(config.startDate, config.endDate).reduce((acc, date) => {
                     const key = getMonthName(date);
                     if (!acc[key]) acc[key] = [];
                     acc[key].push(date);
@@ -577,7 +587,7 @@ END:VEVENT
   );
 
   const renderCalendarView = () => {
-    const dates = generateDates(config.startDate, config.months);
+    const dates = generateDates(config.startDate, config.endDate);
 
     // Group dates by month
     const months = {};
