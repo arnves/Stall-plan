@@ -100,14 +100,40 @@ const Card = ({ children, title, className = '' }) => (
 
 export default function App() {
   // --- State ---
-  const [riders, setRiders] = useState([
+  const STORAGE_KEY = 'stallplan_riders_v1';
+  const SCHEMA_VERSION = 1;
+
+  const defaultRiders = [
     { id: 1, name: 'Elin', color: 'bg-blue-100 text-blue-800 border-blue-200', blockedDates: [] },
     { id: 2, name: 'Anne', color: 'bg-green-100 text-green-800 border-green-200', blockedDates: [] },
     { id: 3, name: 'Silvia', color: 'bg-purple-100 text-purple-800 border-purple-200', blockedDates: [] },
     { id: 4, name: 'Hedda', color: 'bg-orange-100 text-orange-800 border-orange-200', blockedDates: [] },
     { id: 5, name: 'Kristel', color: 'bg-yellow-100 text-yellow-800 border-yellow-200', blockedDates: [] },
     { id: 6, name: 'Marion', color: 'bg-red-100 text-red-800 border-red-200', blockedDates: [] },
-  ]);
+  ];
+
+  const [riders, setRiders] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const { version, data } = JSON.parse(saved);
+        if (version === SCHEMA_VERSION) {
+          return data;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load riders from storage', e);
+    }
+    return defaultRiders;
+  });
+
+  // Persist riders when they change
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      version: SCHEMA_VERSION,
+      data: riders
+    }));
+  }, [riders]);
 
   const [config, setConfig] = useState(() => {
     const start = new Date();
@@ -710,6 +736,16 @@ ${btoa(unescape(encodeURIComponent(htmlContent)))}
                 <span className="text-sm font-medium px-2 py-1 rounded bg-blue-100 text-blue-700">
                   {getRiderById(activeRiderId)?.blockedDates.length} dager blokkert
                 </span>
+              </div>
+
+              <div className="flex justify-end mb-4">
+                <Button
+                  variant="ghost"
+                  onClick={() => updateRider(activeRiderId, 'blockedDates', [])}
+                  className="text-red-600 hover:bg-red-50 hover:text-red-700 text-xs px-2 py-1 h-auto"
+                >
+                  <Trash2 size={14} /> Fjern alle
+                </Button>
               </div>
 
               {/* Grouped Month View for Selection */}
