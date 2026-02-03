@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Trash2, Plus, Calendar as CalendarIcon, Printer, RefreshCw, User, AlertCircle, Check, X, Download, Settings, Mail } from 'lucide-react';
+import { Trash2, Plus, Calendar as CalendarIcon, Printer, RefreshCw, User, AlertCircle, Check, X, Download, Settings, Mail, Activity } from 'lucide-react';
 
 /* STABLE SCHEDULER - 
   A self-contained React application for managing stable duty rosters.
@@ -156,6 +156,7 @@ export default function App() {
   const [schedule, setSchedule] = useState({}); // { "2023-10-01": riderId }
   const [view, setView] = useState('setup'); // 'setup' | 'calendar'
   const [activeRiderId, setActiveRiderId] = useState(null); // For configuration modal
+  const [showHeatMap, setShowHeatMap] = useState(false); // Controls heat map visualization
 
   // --- Logic: The Scheduler ---
 
@@ -577,6 +578,23 @@ ${btoa(unescape(encodeURIComponent(htmlContent)))}
     setSchedule({ ...schedule, [dateStr]: nextId });
   };
 
+  // --- Heat Map Logic ---
+
+  const getAvailabilityColor = (dateStr) => {
+    if (!showHeatMap) return '';
+
+    const totalRiders = riders.length;
+    if (totalRiders === 0) return '';
+
+    const availableRiders = riders.filter(r => !r.blockedDates.includes(dateStr)).length;
+    const percentage = availableRiders / totalRiders;
+
+    if (percentage >= 0.75) return 'bg-green-100/80'; // high availability
+    if (percentage >= 0.50) return 'bg-yellow-100/80'; // medium availability
+    if (percentage >= 0.25) return 'bg-orange-100/80'; // low availability
+    return 'bg-red-100/80'; // critical availability
+  };
+
   const getRiderById = (id) => riders.find(r => r.id === id);
 
   // --- Render Helpers ---
@@ -840,6 +858,13 @@ ${btoa(unescape(encodeURIComponent(htmlContent)))}
             <Button variant="secondary" onClick={generateSchedule} title="Re-roll logic">
               <RefreshCw size={18} /> Generer på nytt
             </Button>
+            <Button
+              variant={showHeatMap ? "primary" : "secondary"}
+              onClick={() => setShowHeatMap(!showHeatMap)}
+              title="Vis tilgjengelighet (Heat Map)"
+            >
+              <Activity size={18} /> {showHeatMap ? 'Skjul Heat Map' : 'Vis Heat Map'}
+            </Button>
             <Button onClick={handlePrint}>
               <Printer size={18} /> Skriv ut Plan
             </Button>
@@ -913,15 +938,24 @@ ${btoa(unescape(encodeURIComponent(htmlContent)))}
                     const dateStr = formatDate(date);
                     const riderId = schedule[dateStr];
                     const rider = getRiderById(riderId);
+                    const heatMapClass = getAvailabilityColor(dateStr);
+
+                    // Determine background color: HeatMap > Weekend > Default (White)
+                    let bgClass = 'bg-white';
+                    if (heatMapClass) {
+                      bgClass = heatMapClass;
+                    } else if (isWeekendDay(date)) {
+                      bgClass = 'bg-gray-50/50';
+                    }
 
                     return (
                       <div
                         key={dateStr}
                         onClick={() => manualAssign(dateStr)}
                         className={`
-                            bg-white min-h-[120px] p-2 relative group cursor-pointer hover:bg-gray-50 transition-colors
-                            print:min-h-0 print:h-auto print:p-1
-                            ${isWeekendDay(date) ? 'bg-gray-50/50' : ''}
+                            min-h-[120px] p-2 relative group cursor-pointer hover:bg-gray-50 transition-colors
+                            print:min-h-0 print:h-auto print:p-1 print:bg-white
+                            ${bgClass}
                         `}
                       >
                         <span className={`
@@ -929,6 +963,7 @@ ${btoa(unescape(encodeURIComponent(htmlContent)))}
                             print:w-5 print:h-5 print:text-[10px] print:mb-0
                             text-gray-500
                           `}>
+
                           {date.getDate()}
                         </span>
 
