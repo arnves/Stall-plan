@@ -2,10 +2,20 @@
 
 @media print {
   @page {
-    margin: 0;
+    margin: 15mm;
+    size: landscape;
   }
 
   body {
     -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .break-after-page {
+    break-after: page;
   }
 }

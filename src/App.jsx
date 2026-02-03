@@ -849,7 +849,7 @@ ${btoa(unescape(encodeURIComponent(htmlContent)))}
     return (
       <div className="max-w-6xl mx-auto">
         {/* Toolbar - Hidden when printing */}
-        <div className="mb-8 flex flex-wrap gap-4 items-center justify-between no-print bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+        <div className="mb-8 flex flex-wrap gap-4 items-center justify-between print:hidden bg-white p-4 rounded-xl shadow-sm border border-gray-200">
           <Button variant="secondary" onClick={() => setView('setup')}>
             <User size={18} /> Rediger Ryttere
           </Button>
@@ -872,7 +872,7 @@ ${btoa(unescape(encodeURIComponent(htmlContent)))}
         </div>
 
         {/* Stats Summary - Hidden when printing */}
-        <div className="mb-8 no-print">
+        <div className="mb-8 print:hidden">
           <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Rettferdighetssjekk (Lørdager prioritert)</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {riders.map(r => (
@@ -913,7 +913,7 @@ ${btoa(unescape(encodeURIComponent(htmlContent)))}
             <div key={monthName} className="break-after-page bg-white p-8 rounded-xl shadow-sm border border-gray-200 print:shadow-none print:border-none print:p-0 print:h-screen print:flex print:flex-col print:overflow-hidden">
               <div className="flex justify-between items-end mb-6 border-b-2 border-emerald-600 pb-2 print:mb-2">
                 <h2 className="text-3xl font-bold text-gray-800 uppercase tracking-tight print:text-2xl">{monthName}</h2>
-                <span className="text-sm text-gray-500 font-medium no-print">Klikk på en dag for å bytte person</span>
+                <span className="text-sm text-gray-500 font-medium print:hidden">Klikk på en dag for å bytte person</span>
               </div>
 
               {/* Flex wrapper for the grid to ensure full page height usage in print */}
