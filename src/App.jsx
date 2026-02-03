@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Trash2, Plus, Calendar as CalendarIcon, Printer, RefreshCw, User, AlertCircle, Check, X, Download, Settings, Mail } from 'lucide-react';
 
-/* STABLE SCHEDULER
+/* STABLE SCHEDULER - 
   A self-contained React application for managing stable duty rosters.
   Features:
   - Rider Management (names, specific blocked dates)
