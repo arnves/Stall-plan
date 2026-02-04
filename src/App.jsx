@@ -59,6 +59,73 @@ const getMonthName = (date) => {
   return date.toLocaleString('nb-NO', { month: 'long', year: 'numeric' });
 };
 
+const getWeekNumber = (d) => {
+  // Copy date so don't modify original
+  d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  // Set to nearest Thursday: current date + 4 - current day number
+  // Make Sunday's day number 7
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  // Get first day of year
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  // Calculate full weeks to nearest Thursday
+  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  // Return array of year and week number
+  return weekNo;
+};
+
+// Groups dates into weeks (arrays of 7 days, padded with nulls)
+const groupDatesByWeek = (dates) => {
+  if (dates.length === 0) return [];
+
+  const weeks = [];
+  let currentWeek = Array(7).fill(null);
+
+  // First date's day of week (1=Mon, ..., 7=Sun)
+  // getDay(): 0=Sun, 1=Mon. We want 0=Mon, 6=Sun for array index.
+  // Real index: (day + 6) % 7
+
+  dates.forEach(date => {
+    const dayIndex = (date.getDay() + 6) % 7; // Mon=0, Sun=6
+
+    // If this is a Monday and we have data in currentWeek, or if we jumped ahead
+    // (Shouldn't happen with sequential dates, but good safety)
+    if (dayIndex === 0 && currentWeek.some(d => d !== null)) {
+      weeks.push({ weekNum: getWeekNumber(date), days: currentWeek }); // Use NEXT week's number because we are pushing the PREV week? 
+      // WAIT. The week number belongs to the week we are building.
+      // Correct logic: Week num is determined by the Monday (or Thursday) of that week.
+      // Let's refine: push the COMPLETED week.
+
+      // Actually simpler: Just push the week when we hit Monday, OR initialize better.
+    }
+  });
+
+  // Re-thinking: Just map linearly and chunk? 
+  // Dates are sequential. 
+  // 1. Find start offset.
+  // 2. Fill array.
+
+  const expanded = [];
+  const firstDayIndex = (dates[0].getDay() + 6) % 7;
+  // Fill leading nulls
+  for (let i = 0; i < firstDayIndex; i++) expanded.push(null);
+  // Add dates
+  dates.forEach(d => expanded.push(d));
+  // Fill trailing nulls
+  while (expanded.length % 7 !== 0) expanded.push(null);
+
+  // Chunk into 7s
+  for (let i = 0; i < expanded.length; i += 7) {
+    const weekDays = expanded.slice(i, i + 7);
+    // Find first non-null day to determine week number
+    const refDay = weekDays.find(d => d !== null);
+    if (refDay) {
+      weeks.push({ weekNum: getWeekNumber(refDay), days: weekDays });
+    }
+  }
+
+  return weeks;
+};
+
 // --- Components ---
 
 const Button = ({ children, onClick, variant = 'primary', className = '', disabled = false, title = '' }) => {
@@ -775,44 +842,59 @@ ${btoa(unescape(encodeURIComponent(htmlContent)))}
                     acc[key].push(date);
                     return acc;
                   }, {})
-                ).map(([monthName, monthDates]) => (
-                  <div key={monthName}>
-                    <h4 className="font-semibold text-gray-800 mb-2 border-b border-gray-100 pb-1">{monthName}</h4>
-                    <div className="grid grid-cols-7 gap-1">
-                      {['M', 'T', 'O', 'T', 'F', 'L', 'S'].map((d, i) => (
-                        <div key={i} className="text-center text-xs font-bold text-gray-400 py-1">{d}</div>
-                      ))}
+                ).map(([monthName, monthDates]) => {
+                  const weeks = groupDatesByWeek(monthDates);
+                  return (
+                    <div key={monthName}>
+                      <h4 className="font-semibold text-gray-800 mb-2 border-b border-gray-100 pb-1">{monthName}</h4>
+                      {/* Header: Week Num + 7 Days */}
+                      <div className="grid grid-cols-[2rem_repeat(7,1fr)] gap-1 mb-1">
+                        <div className="text-center text-xs font-bold text-gray-400 py-1">Uke</div>
+                        {['M', 'T', 'O', 'T', 'F', 'L', 'S'].map((d, i) => (
+                          <div key={i} className="text-center text-xs font-bold text-gray-400 py-1">{d}</div>
+                        ))}
+                      </div>
 
-                      {/* Empty slots for start of month alignment (Monday start) */}
-                      {Array.from({ length: (monthDates[0].getDay() + 6) % 7 }).map((_, i) => (
-                        <div key={`empty-${i}`} />
-                      ))}
+                      {/* Weeks Rows */}
+                      <div className="grid grid-cols-[2rem_repeat(7,1fr)] gap-1">
+                        {weeks.map((week, wIndex) => (
+                          <React.Fragment key={wIndex}>
+                            {/* Week Number Cell */}
+                            <div className="flex items-center justify-center text-xs text-gray-400 font-medium bg-gray-50 rounded">
+                              {week.weekNum}
+                            </div>
 
-                      {monthDates.map(date => {
-                        const dStr = formatDate(date);
-                        const isBlocked = getRiderById(activeRiderId)?.blockedDates.includes(dStr);
-                        const dayNum = date.getDate();
+                            {/* 7 Days */}
+                            {week.days.map((date, dIndex) => {
+                              if (!date) return <div key={`empty-${dIndex}`} />;
 
-                        return (
-                          <button
-                            type="button"
-                            key={dStr}
-                            onClick={(e) => toggleBlockedDate(e, activeRiderId, dStr)}
-                            className={`
-                                aspect-square text-sm rounded-md flex items-center justify-center transition-all
-                                ${isBlocked
-                                ? 'bg-red-100 text-red-700 font-bold border border-red-200'
-                                : 'hover:bg-gray-100 text-gray-700'}
-                                ${isWeekendDay(date) && !isBlocked ? 'bg-gray-50' : ''}
-                              `}
-                          >
-                            {dayNum}
-                          </button>
-                        );
-                      })}
+                              const dStr = formatDate(date);
+                              const isBlocked = getRiderById(activeRiderId)?.blockedDates.includes(dStr);
+                              const dayNum = date.getDate();
+
+                              return (
+                                <button
+                                  type="button"
+                                  key={dStr}
+                                  onClick={(e) => toggleBlockedDate(e, activeRiderId, dStr)}
+                                  className={`
+                                     aspect-square text-sm rounded-md flex items-center justify-center transition-all
+                                     ${isBlocked
+                                      ? 'bg-red-100 text-red-700 font-bold border border-red-200'
+                                      : 'hover:bg-gray-100 text-gray-700'}
+                                     ${isWeekendDay(date) && !isBlocked ? 'bg-gray-50' : ''}
+                                   `}
+                                >
+                                  {dayNum}
+                                </button>
+                              );
+                            })}
+                          </React.Fragment>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
             <div className="p-6 bg-gray-50 text-right sticky bottom-0 border-t border-gray-100">
@@ -919,7 +1001,10 @@ ${btoa(unescape(encodeURIComponent(htmlContent)))}
               {/* Flex wrapper for the grid to ensure full page height usage in print */}
               <div className="flex flex-col bg-gray-200 border border-gray-200 print:flex-1 print:border-gray-300">
                 {/* Header Row */}
-                <div className="grid grid-cols-7 gap-px bg-gray-200 border-b border-gray-200 print:border-gray-300">
+                <div className="grid grid-cols-[3rem_repeat(7,1fr)] gap-px bg-gray-200 border-b border-gray-200 print:border-gray-300">
+                  <div className="bg-gray-50 p-2 text-center text-xs font-bold uppercase text-gray-500 tracking-wider print:py-1 print:text-[10px]">
+                    Uke
+                  </div>
                   {['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag', 'Søndag'].map(day => (
                     <div key={day} className="bg-gray-50 p-2 text-center text-xs font-bold uppercase text-gray-500 tracking-wider print:py-1 print:text-[10px]">
                       {day}
@@ -928,63 +1013,69 @@ ${btoa(unescape(encodeURIComponent(htmlContent)))}
                 </div>
 
                 {/* Days Grid - Expands to fill available space */}
-                <div className="grid grid-cols-7 gap-px bg-gray-200 flex-1 auto-rows-fr print:bg-gray-300">
-                  {/* Empty cells for start of month (Monday start) */}
-                  {Array.from({ length: (monthDates[0].getDay() + 6) % 7 }).map((_, i) => (
-                    <div key={`empty-${i}`} className="bg-white min-h-[120px] print:min-h-0" />
-                  ))}
-
-                  {monthDates.map(date => {
-                    const dateStr = formatDate(date);
-                    const riderId = schedule[dateStr];
-                    const rider = getRiderById(riderId);
-                    const heatMapClass = getAvailabilityColor(dateStr);
-
-                    // Determine background color: HeatMap > Weekend > Default (White)
-                    let bgClass = 'bg-white';
-                    if (heatMapClass) {
-                      bgClass = heatMapClass;
-                    } else if (isWeekendDay(date)) {
-                      bgClass = 'bg-gray-50/50';
-                    }
-
-                    return (
-                      <div
-                        key={dateStr}
-                        onClick={() => manualAssign(dateStr)}
-                        className={`
-                            min-h-[120px] p-2 relative group cursor-pointer hover:bg-gray-50 transition-colors
-                            print:min-h-0 print:h-auto print:p-1 print:bg-white
-                            ${bgClass}
-                        `}
-                      >
-                        <span className={`
-                            text-sm font-semibold inline-block w-8 h-8 rounded-full flex items-center justify-center mb-1
-                            print:w-5 print:h-5 print:text-[10px] print:mb-0
-                            text-gray-500
-                          `}>
-
-                          {date.getDate()}
-                        </span>
-
-                        {rider && (
-                          <div className={`
-                              p-2 rounded-lg border text-sm font-medium animate-in zoom-in-95 duration-200
-                              print:p-0 print:border-0 print:text-[11px] print:font-bold print:leading-tight
-                              ${rider.color}
-                            `}>
-                            {rider.name}
-                          </div>
-                        )}
-
-                        {!rider && (
-                          <div className="flex h-full items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity print:hidden">
-                            <Plus size={20} className="text-gray-300" />
-                          </div>
-                        )}
+                <div className="grid grid-cols-[3rem_repeat(7,1fr)] gap-px bg-gray-200 flex-1 auto-rows-fr print:bg-gray-300">
+                  {groupDatesByWeek(monthDates).map((week, wIndex) => (
+                    <React.Fragment key={wIndex}>
+                      {/* Week Number Cell */}
+                      <div className="bg-gray-50 flex items-center justify-center text-sm font-bold text-gray-400 print:text-[10px] print:bg-white">
+                        {week.weekNum}
                       </div>
-                    );
-                  })}
+
+                      {/* Days */}
+                      {week.days.map((date, dIndex) => {
+                        if (!date) return <div key={`empty-${wIndex}-${dIndex}`} className="bg-white min-h-[120px] print:min-h-0" />;
+
+                        const dateStr = formatDate(date);
+                        const riderId = schedule[dateStr];
+                        const rider = getRiderById(riderId);
+                        const heatMapClass = getAvailabilityColor(dateStr);
+
+                        // Determine background color: HeatMap > Weekend > Default (White)
+                        let bgClass = 'bg-white';
+                        if (heatMapClass) {
+                          bgClass = heatMapClass;
+                        } else if (isWeekendDay(date)) {
+                          bgClass = 'bg-gray-50/50';
+                        }
+
+                        return (
+                          <div
+                            key={dateStr}
+                            onClick={() => manualAssign(dateStr)}
+                            className={`
+                                  min-h-[120px] p-2 relative group cursor-pointer hover:bg-gray-50 transition-colors
+                                  print:min-h-0 print:h-auto print:p-1 print:bg-white
+                                  ${bgClass}
+                              `}
+                          >
+                            <span className={`
+                                  text-sm font-semibold inline-block w-8 h-8 rounded-full flex items-center justify-center mb-1
+                                  print:w-5 print:h-5 print:text-[10px] print:mb-0
+                                  text-gray-500
+                                `}>
+                              {date.getDate()}
+                            </span>
+
+                            {rider && (
+                              <div className={`
+                                    p-2 rounded-lg border text-sm font-medium animate-in zoom-in-95 duration-200
+                                    print:p-0 print:border-0 print:text-[11px] print:font-bold print:leading-tight
+                                    ${rider.color}
+                                  `}>
+                                {rider.name}
+                              </div>
+                            )}
+
+                            {!rider && (
+                              <div className="flex h-full items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity print:hidden">
+                                <Plus size={20} className="text-gray-300" />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </React.Fragment>
+                  ))}
                 </div>
               </div>
             </div>
