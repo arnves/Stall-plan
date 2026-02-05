@@ -167,6 +167,7 @@ const Card = ({ children, title, className = '' }) => (
 export default function App() {
   // --- State ---
   const STORAGE_KEY = 'stallplan_riders_v1';
+  const STATE_KEY = 'stallplan_state_v1';
   const SCHEMA_VERSION = 1;
 
   const defaultRiders = [
@@ -202,6 +203,16 @@ export default function App() {
   }, [riders]);
 
   const [config, setConfig] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STATE_KEY);
+      if (saved) {
+        const { config } = JSON.parse(saved);
+        if (config) return config;
+      }
+    } catch (e) {
+      console.warn('Failed to load state', e);
+    }
+
     const start = new Date();
     const startStr = start.toISOString().split('T')[0].substring(0, 7) + '-01'; // YYYY-MM-01
 
@@ -219,8 +230,37 @@ export default function App() {
 
   const [eventName, setEventName] = useState('Stallvakt');
   const [eventDescription, setEventDescription] = useState('Du er satt opp på stallvakt i dag.');
-  const [schedule, setSchedule] = useState({}); // { "2023-10-01": riderId }
-  const [view, setView] = useState('setup'); // 'setup' | 'calendar'
+
+  const [schedule, setSchedule] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STATE_KEY);
+      if (saved) {
+        const { schedule } = JSON.parse(saved);
+        return schedule || {};
+      }
+    } catch { }
+    return {};
+  });
+
+  const [view, setView] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STATE_KEY);
+      if (saved) {
+        const { view } = JSON.parse(saved);
+        return view || 'setup';
+      }
+    } catch { }
+    return 'setup';
+  });
+
+  // Persist application state
+  useEffect(() => {
+    localStorage.setItem(STATE_KEY, JSON.stringify({
+      config,
+      schedule,
+      view
+    }));
+  }, [config, schedule, view]);
   const [activeRiderId, setActiveRiderId] = useState(null); // For configuration modal
   const [showHeatMap, setShowHeatMap] = useState(false); // Controls heat map visualization
 
@@ -698,6 +738,12 @@ ${btoa(unescape(encodeURIComponent(htmlContent)))}
               <Button onClick={generateSchedule} className="w-full justify-center mt-4">
                 <CalendarIcon size={18} /> Generer Vaktliste
               </Button>
+
+              {Object.keys(schedule).length > 0 && (
+                <Button variant="secondary" onClick={() => setView('calendar')} className="w-full justify-center">
+                  Vis eksisterende plan
+                </Button>
+              )}
             </div>
           </Card>
 
