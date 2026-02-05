@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Trash2, Plus, Calendar as CalendarIcon, Printer, RefreshCw, User, AlertCircle, Check, X, Download, Settings, Mail, Activity } from 'lucide-react';
+import { generateICalContent } from './utils/icalGenerator';
 
 /* STABLE SCHEDULER - 
   A self-contained React application for managing stable duty rosters.
@@ -51,9 +52,7 @@ const formatDate = (date) => {
   return `${year}-${month}-${day}`;
 };
 
-const formatICalDate = (dateStr) => {
-  return dateStr.replace(/-/g, '');
-};
+
 
 const getMonthName = (date) => {
   return date.toLocaleString('nb-NO', { month: 'long', year: 'numeric' });
@@ -400,38 +399,23 @@ export default function App() {
     const rider = getRiderById(riderId);
     if (!rider) return;
 
-    let icalContent =
-      `BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Stable Scheduler//EN
-CALSCALE:GREGORIAN
-METHOD:PUBLISH
-`;
+    const events = Object.entries(schedule)
+      .filter(([_, scheduledRiderId]) => scheduledRiderId === riderId)
+      .map(([dateStr, scheduledRiderId]) => ({
+        date: dateStr,
+        riderId: scheduledRiderId,
+        name: rider.name,
+        eventName: eventName,
+        description: eventDescription
+      }));
 
-    Object.entries(schedule).forEach(([dateStr, scheduledRiderId]) => {
-      if (scheduledRiderId === riderId) {
-        const dateFormatted = formatICalDate(dateStr);
-        // Ensure newlines are properly escaped for iCal format
-        const safeDescription = eventDescription.replace(/\\n/g, '\\\\n');
-        icalContent +=
-          `BEGIN:VEVENT
-DTSTART;VALUE=DATE:${dateFormatted}
-DTEND;VALUE=DATE:${dateFormatted}
-SUMMARY:${eventName}
-DESCRIPTION:${safeDescription}
-STATUS:CONFIRMED
-END:VEVENT
-`;
-      }
-    });
-
-    icalContent += `END:VCALENDAR`;
+    const icalContent = generateICalContent(events);
 
     const blob = new Blob([icalContent], { type: 'text/calendar;charset=utf-8' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `${rider.name.replace(/\\s+/g, '_')}_schedule.ics`);
+    link.setAttribute('download', `${rider.name.replace(/\s+/g, '_')}_schedule.ics`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -511,29 +495,17 @@ END:VEVENT
     if (!rider) return;
 
     // 1. Generate iCal Content
-    let icalContent =
-      `BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Stable Scheduler//EN
-CALSCALE:GREGORIAN
-METHOD:PUBLISH
-`;
-    Object.entries(schedule).forEach(([dateStr, scheduledRiderId]) => {
-      if (scheduledRiderId === riderId) {
-        const dateFormatted = formatICalDate(dateStr);
-        const safeDescription = eventDescription.replace(/\\n/g, '\\\\n');
-        icalContent +=
-          `BEGIN:VEVENT
-DTSTART;VALUE=DATE:${dateFormatted}
-DTEND;VALUE=DATE:${dateFormatted}
-SUMMARY:${eventName}
-DESCRIPTION:${safeDescription}
-STATUS:CONFIRMED
-END:VEVENT
-`;
-      }
-    });
-    icalContent += `END:VCALENDAR`;
+    const events = Object.entries(schedule)
+      .filter(([_, scheduledRiderId]) => scheduledRiderId === riderId)
+      .map(([dateStr, scheduledRiderId]) => ({
+        date: dateStr,
+        riderId: scheduledRiderId,
+        name: rider.name,
+        eventName: eventName,
+        description: eventDescription
+      }));
+
+    const icalContent = generateICalContent(events);
 
     // 2. Generate HTML Content
     const htmlContent = generateScheduleHTML();
